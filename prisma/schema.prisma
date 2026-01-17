@@ -1,0 +1,86 @@
+// This is your Prisma schema file
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  tasks        Task[]
+}
+
+model Client {
+  id          String           @id @default(cuid())
+  name        String
+  email       String?
+  phone       String?
+  cpf         String?          @unique
+  notes       String?
+  description String?          // Detailed notes/observations
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  tasks       Task[]
+  documents   ClientDocument[]
+}
+
+model Service {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  duration    Int      // in minutes
+  price       Float
+  color       String   @default("#3B82F6")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  tasks       Task[]
+}
+
+model Task {
+  id          String     @id @default(cuid())
+  title       String
+  description String?
+  startTime   DateTime
+  endTime     DateTime
+  status      TaskStatus @default(SCHEDULED)
+  userId      String
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  clientId    String?
+  client      Client?    @relation(fields: [clientId], references: [id], onDelete: SetNull)
+  serviceId   String?
+  service     Service?   @relation(fields: [serviceId], references: [id], onDelete: SetNull)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([userId, startTime])
+  @@index([startTime, endTime])
+}
+
+enum TaskStatus {
+  SCHEDULED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model ClientDocument {
+  id          String   @id @default(cuid())
+  clientId    String
+  client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  fileName    String   // Original file name
+  fileSize    Int      // File size in bytes
+  mimeType    String   // File MIME type
+  filePath    String   // Path to stored file
+  description String?  // Optional description of document
+  uploadedAt  DateTime @default(now())
+
+  @@index([clientId])
+}
