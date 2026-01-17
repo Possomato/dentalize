@@ -3,9 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { auth } from "@/lib/auth"
 import { revalidatePath } from "next/cache"
-import { writeFile, unlink } from "fs/promises"
-import { join } from "path"
-import { z } from "zod"
+import { uploadToR2, deleteFromR2, extractKeyFromUrl } from "@/lib/r2"
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 
@@ -30,18 +28,16 @@ export async function uploadDocument(clientId: string, formData: FormData) {
     // Generate unique filename
     const timestamp = Date.now()
     const originalName = file.name
-    const extension = originalName.split(".").pop()
     const sanitizedName = originalName.replace(/[^a-zA-Z0-9.-]/g, "_")
     const uniqueFileName = `${timestamp}_${sanitizedName}`
+    const key = `documents/${uniqueFileName}`
 
     // Convert file to buffer
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
 
-    // Save to public/uploads/documents
-    const uploadDir = join(process.cwd(), "public", "uploads", "documents")
-    const filePath = join(uploadDir, uniqueFileName)
-    await writeFile(filePath, buffer)
+    // Upload to R2
+    const fileUrl = await uploadToR2(key, buffer, file.type)
 
     // Create database record
     const document = await prisma.clientDocument.create({
@@ -50,7 +46,7 @@ export async function uploadDocument(clientId: string, formData: FormData) {
         fileName: originalName,
         fileSize: file.size,
         mimeType: file.type,
-        filePath: `/uploads/documents/${uniqueFileName}`,
+        filePath: fileUrl,
         description: description || null,
       },
     })
@@ -79,13 +75,13 @@ export async function deleteDocument(documentId: string) {
       return { error: "Documento não encontrado" }
     }
 
-    // Delete file from filesystem
-    const filePath = join(process.cwd(), "public", document.filePath)
+    // Delete file from R2
     try {
-      await unlink(filePath)
+      const key = extractKeyFromUrl(document.filePath)
+      await deleteFromR2(key)
     } catch (error) {
-      console.error("Error deleting file:", error)
-      // Continue even if file doesn't exist
+      console.error("Error deleting file from R2:", error)
+      // Continue even if file doesn't exist in R2
     }
 
     // Delete database record
