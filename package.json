@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run db:prod && next build",
     "start": "next start",
     "lint": "next lint",
+    "db:dev": "cp prisma/schema.dev.prisma prisma/schema.prisma && prisma generate",
+    "db:prod": "cp prisma/schema.prod.prisma prisma/schema.prisma && prisma generate",
     "db:migrate": "npx prisma migrate dev",
     "db:studio": "npx prisma studio",
-    "db:generate": "npx prisma generate",
     "db:push": "npx prisma db push",
     "postinstall": "prisma generate"
   },

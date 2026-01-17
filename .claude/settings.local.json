@@ -19,7 +19,8 @@
       "Bash(do echo \"=== $type ===\")",
       "Bash(done)",
       "Bash(npx prisma generate:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(npm run db:dev:*)"
     ]
   }
 }
