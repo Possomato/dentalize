@@ -67,7 +67,7 @@ export default function ServicosPage() {
   }
 
   return (
-    <div className="p-3 sm:p-6 md:p-8">
+    <div className="p-3 sm:p-6 md:p-8 pt-20 md:pt-8">
       <div className="mb-4 sm:mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-2xl sm:text-3xl font-bold">Serviços</h1>
         <Button onClick={handleNew} className="w-full sm:w-auto">

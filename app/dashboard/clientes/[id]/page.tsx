@@ -2,33 +2,23 @@
 
 import { useState, useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { getClientWithDetails } from "@/actions/clients"
+import { getClientWithDetails, getClients } from "@/actions/clients"
+import { getServices } from "@/actions/services"
 import { uploadDocument, deleteDocument } from "@/actions/documents"
-import { Client, ClientDocument } from "@/types"
+import { Client, ClientDocument, Service, TaskWithRelations } from "@/types"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, Upload, FileText, Trash2, Calendar, Loader2, Download } from "lucide-react"
+import { ArrowLeft, Upload, FileText, Trash2, Calendar, Loader2, Download, Clock, User } from "lucide-react"
 import Link from "next/link"
 import { format } from "date-fns"
 import { ptBR } from "date-fns/locale"
+import { TaskForm } from "@/components/tasks/TaskForm"
 
 type ClientWithDetails = Client & {
-  tasks: Array<{
-    id: string
-    title: string
-    description: string | null
-    startTime: Date
-    endTime: Date
-    status: string
-    service: {
-      id: string
-      name: string
-      color: string
-    } | null
-  }>
+  tasks: TaskWithRelations[]
   documents: ClientDocument[]
 }
 
@@ -44,6 +34,12 @@ export default function ClientProfilePage() {
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [fileDescription, setFileDescription] = useState("")
 
+  // TaskForm state
+  const [taskFormOpen, setTaskFormOpen] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<TaskWithRelations | null>(null)
+  const [allClients, setAllClients] = useState<Client[]>([])
+  const [services, setServices] = useState<Service[]>([])
+
   const fetchClient = async () => {
     setLoading(true)
     const data = await getClientWithDetails(clientId)
@@ -55,9 +51,28 @@ export default function ClientProfilePage() {
     setLoading(false)
   }
 
+  const fetchFormData = async () => {
+    const [clientsData, servicesData] = await Promise.all([
+      getClients(),
+      getServices(),
+    ])
+    setAllClients(clientsData)
+    setServices(servicesData)
+  }
+
   useEffect(() => {
     fetchClient()
+    fetchFormData()
   }, [clientId])
+
+  const handleTaskClick = (task: TaskWithRelations) => {
+    setSelectedTask(task)
+    setTaskFormOpen(true)
+  }
+
+  const handleTaskFormSuccess = () => {
+    fetchClient()
+  }
 
   const handleFileUpload = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
@@ -327,57 +342,92 @@ export default function ClientProfilePage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {client.tasks.map((task) => (
-                <div
-                  key={task.id}
-                  className="flex items-start gap-2 sm:gap-4 p-3 sm:p-4 border border-gray-200 rounded-lg hover:bg-gray-50"
-                >
-                  {task.service && (
+              {client.tasks.map((task) => {
+                const backgroundColor = task.service?.color || "#3B82F6"
+
+                return (
+                  <div
+                    key={task.id}
+                    onClick={() => handleTaskClick(task)}
+                    className="cursor-pointer border border-gray-200 rounded-lg hover:shadow-md transition-shadow overflow-hidden"
+                  >
+                    {/* Color indicator bar */}
                     <div
-                      className="w-1 h-full rounded-full flex-shrink-0"
-                      style={{ backgroundColor: task.service.color }}
+                      className="w-full h-1"
+                      style={{ backgroundColor }}
                     />
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-col sm:flex-row items-start sm:items-start justify-between mb-2 gap-2">
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-sm sm:text-base truncate">{task.title}</h3>
+
+                    <div className="p-3 sm:p-4">
+                      {/* Header with title and status */}
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 mb-2">
+                        <h3 className="font-semibold text-sm sm:text-base">{task.title}</h3>
+                        <span
+                          className={`px-2 py-1 text-xs rounded-full whitespace-nowrap flex-shrink-0 ${getStatusColor(task.status)}`}
+                        >
+                          {getStatusLabel(task.status)}
+                        </span>
+                      </div>
+
+                      {/* Task details */}
+                      <div className="space-y-1.5 text-sm text-gray-600">
+                        {/* Date and Time */}
+                        <div className="flex items-center gap-2">
+                          <Calendar className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                          <span>
+                            {format(new Date(task.startTime), "dd/MM/yyyy", { locale: ptBR })}
+                          </span>
+                        </div>
+
+                        {/* Time */}
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                          <span>
+                            {format(new Date(task.startTime), "HH:mm")} - {format(new Date(task.endTime), "HH:mm")}
+                            <span className="text-gray-400 ml-2">
+                              ({Math.round(
+                                (new Date(task.endTime).getTime() - new Date(task.startTime).getTime()) /
+                                  (1000 * 60)
+                              )} min)
+                            </span>
+                          </span>
+                        </div>
+
+                        {/* Service */}
                         {task.service && (
-                          <p className="text-xs sm:text-sm text-gray-600 truncate">{task.service.name}</p>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-4 h-4 rounded flex-shrink-0"
+                              style={{ backgroundColor }}
+                            />
+                            <span>{task.service.name}</span>
+                          </div>
                         )}
                       </div>
-                      <span
-                        className={`px-2 py-1 text-xs rounded-full whitespace-nowrap flex-shrink-0 ${getStatusColor(task.status)}`}
-                      >
-                        {getStatusLabel(task.status)}
-                      </span>
-                    </div>
-                    {task.description && (
-                      <p className="text-xs sm:text-sm text-gray-600 mb-2 line-clamp-2">{task.description}</p>
-                    )}
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4 text-xs sm:text-sm text-gray-500">
-                      <span className="truncate">
-                        {format(new Date(task.startTime), "dd/MM/yyyy 'às' HH:mm", {
-                          locale: ptBR,
-                        })}
-                      </span>
-                      <span className="hidden sm:inline">•</span>
-                      <span>
-                        Duração:{" "}
-                        {Math.round(
-                          (new Date(task.endTime).getTime() - new Date(task.startTime).getTime()) /
-                            (1000 * 60)
-                        )}{" "}
-                        min
-                      </span>
+
+                      {/* Description */}
+                      {task.description && (
+                        <p className="text-xs sm:text-sm text-gray-500 mt-2 line-clamp-2">
+                          {task.description}
+                        </p>
+                      )}
                     </div>
                   </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      {/* Task Form Modal */}
+      <TaskForm
+        open={taskFormOpen}
+        onOpenChange={setTaskFormOpen}
+        task={selectedTask}
+        clients={allClients}
+        services={services}
+        onSuccess={handleTaskFormSuccess}
+      />
     </div>
   )
 }

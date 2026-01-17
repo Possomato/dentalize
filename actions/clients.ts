@@ -37,6 +37,7 @@ export async function getClientWithDetails(clientId: string) {
       tasks: {
         include: {
           service: true,
+          client: true,
         },
         orderBy: {
           startTime: "desc",
