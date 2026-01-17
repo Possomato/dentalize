@@ -23,6 +23,22 @@ interface TaskFormProps {
   onSuccess: () => void
 }
 
+// Generate time options in 30-minute intervals
+function generateTimeOptions() {
+  const options: { value: string; label: string }[] = []
+  for (let hour = 7; hour <= 19; hour++) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      // Skip 19:30 since business hours end at 19:00
+      if (hour === 19 && minute > 0) continue
+      const value = `${hour.toString().padStart(2, "0")}:${minute.toString().padStart(2, "0")}`
+      options.push({ value, label: value })
+    }
+  }
+  return options
+}
+
+const TIME_OPTIONS = generateTimeOptions()
+
 export function TaskForm({
   open,
   onOpenChange,
@@ -39,35 +55,42 @@ export function TaskForm({
   const [selectedServiceId, setSelectedServiceId] = useState<string>("none")
   const [duration, setDuration] = useState(30)
 
-  // Format datetime-local input value
-  const getDateTimeValue = (date: Date) => {
-    return format(date, "yyyy-MM-dd'T'HH:mm")
-  }
+  // Separate date and time state
+  const [selectedDate, setSelectedDate] = useState("")
+  const [selectedTime, setSelectedTime] = useState("")
 
-  // Initialize form
-  const defaultStartTime = initialDate
-    ? new Date(initialDate.setHours(initialHour, initialMinute, 0, 0))
-    : new Date()
-
+  // Initialize form values when dialog opens or task changes
   useEffect(() => {
-    if (task) {
-      setSelectedServiceId(task.serviceId || "none")
-      const start = new Date(task.startTime)
-      const end = new Date(task.endTime)
-      const durationMinutes = (end.getTime() - start.getTime()) / (1000 * 60)
-      setDuration(durationMinutes)
-    } else {
-      // Reset to defaults when creating new task
-      setSelectedServiceId("none")
-      setDuration(30)
+    if (open) {
+      if (task) {
+        // Editing existing task
+        const taskStart = new Date(task.startTime)
+        const taskEnd = new Date(task.endTime)
+        setSelectedDate(format(taskStart, "yyyy-MM-dd"))
+        setSelectedTime(format(taskStart, "HH:mm"))
+        setSelectedServiceId(task.serviceId || "none")
+        const durationMinutes = (taskEnd.getTime() - taskStart.getTime()) / (1000 * 60)
+        setDuration(durationMinutes)
+      } else {
+        // Creating new task
+        const dateToUse = initialDate || new Date()
+        setSelectedDate(format(dateToUse, "yyyy-MM-dd"))
+        // Round initial minute to nearest 30
+        const roundedMinute = initialMinute >= 30 ? 30 : 0
+        setSelectedTime(
+          `${initialHour.toString().padStart(2, "0")}:${roundedMinute.toString().padStart(2, "0")}`
+        )
+        setSelectedServiceId("none")
+        setDuration(30)
+      }
       setError(null)
     }
-  }, [task, open])
+  }, [open, task, initialDate, initialHour, initialMinute])
 
   const handleServiceChange = (serviceId: string) => {
     setSelectedServiceId(serviceId)
     if (serviceId === "none") {
-      setDuration(30) // Reset to default 30 minutes
+      setDuration(30)
       return
     }
     const service = services.find(s => s.id === serviceId)
@@ -83,9 +106,18 @@ export function TaskForm({
 
     const formData = new FormData(e.currentTarget)
 
-    // Calculate end time based on start time and duration
-    const startTime = new Date(formData.get("startTime") as string)
+    // Parse the selected date and time into components
+    const [year, month, day] = selectedDate.split("-").map(Number)
+    const [hours, minutes] = selectedTime.split(":").map(Number)
+
+    // Create start time using local date components (avoids timezone issues)
+    const startTime = new Date(year, month - 1, day, hours, minutes, 0, 0)
+
+    // Calculate end time
     const endTime = new Date(startTime.getTime() + duration * 60000)
+
+    // Store as ISO strings for the server
+    formData.set("startTime", startTime.toISOString())
     formData.set("endTime", endTime.toISOString())
 
     const result = task
@@ -110,6 +142,16 @@ export function TaskForm({
     onSuccess()
     onOpenChange(false)
     setLoading(false)
+  }
+
+  // Calculate preview end time
+  const getEndTimePreview = () => {
+    if (!selectedDate || !selectedTime) return ""
+    const [year, month, day] = selectedDate.split("-").map(Number)
+    const [hours, minutes] = selectedTime.split(":").map(Number)
+    const startTime = new Date(year, month - 1, day, hours, minutes, 0, 0)
+    const endTime = new Date(startTime.getTime() + duration * 60000)
+    return format(endTime, "HH:mm")
   }
 
   return (
@@ -147,20 +189,43 @@ export function TaskForm({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="startTime">Data e Hora de Início *</Label>
-            <Input
-              id="startTime"
-              name="startTime"
-              type="datetime-local"
-              defaultValue={task ? getDateTimeValue(new Date(task.startTime)) : getDateTimeValue(defaultStartTime)}
-              required
-              disabled={loading}
-            />
+          {/* Separate Date and Time Fields */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-2">
+              <Label htmlFor="date">Data *</Label>
+              <Input
+                id="date"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                required
+                disabled={loading}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="time">Horário *</Label>
+              <Select
+                value={selectedTime}
+                onValueChange={setSelectedTime}
+                disabled={loading}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione" />
+                </SelectTrigger>
+                <SelectContent>
+                  {TIME_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="duration">Duração (minutos)</Label>
+            <Label htmlFor="duration">Duração</Label>
             <Select value={duration.toString()} onValueChange={(val) => setDuration(Number(val))}>
               <SelectTrigger>
                 <SelectValue />
@@ -173,6 +238,11 @@ export function TaskForm({
                 <SelectItem value="120">2 horas</SelectItem>
               </SelectContent>
             </Select>
+            {selectedTime && (
+              <p className="text-xs text-gray-500">
+                Término às {getEndTimePreview()}
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
@@ -196,7 +266,7 @@ export function TaskForm({
             <Label htmlFor="serviceId">Serviço</Label>
             <Select
               name="serviceId"
-              value={selectedServiceId || "none"}
+              value={selectedServiceId}
               onValueChange={handleServiceChange}
             >
               <SelectTrigger>
