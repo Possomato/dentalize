@@ -17,7 +17,9 @@
       "Bash(npx shadcn@latest add:*)",
       "Bash(for type in Task Client Service User TaskStatus ClientDocument)",
       "Bash(do echo \"=== $type ===\")",
-      "Bash(done)"
+      "Bash(done)",
+      "Bash(npx prisma generate:*)",
+      "Bash(pkill:*)"
     ]
   }
 }
