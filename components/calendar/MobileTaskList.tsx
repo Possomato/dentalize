@@ -84,7 +84,7 @@ export function MobileTaskList({ initialTasks, onTaskClick, onSlotClick, onWeekC
         {sortedTasks.length === 0 ? (
           <div className="text-center py-12 text-gray-500">
             <p>Nenhuma tarefa encontrada para este dia.</p>
-            <p className="text-sm mt-2">Clique em "Nova Tarefa" para criar uma.</p>
+            <p className="text-sm mt-2">Clique em &quot;Nova Tarefa&quot; para criar uma.</p>
           </div>
         ) : (
           sortedTasks.map((task) => {
