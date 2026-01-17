@@ -1,10 +1,10 @@
-// Development schema (SQLite)
+// This is your Prisma schema file
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -25,7 +25,7 @@ model Client {
   phone       String?
   cpf         String?          @unique
   notes       String?
-  description String?
+  description String?          // Detailed notes/observations
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   tasks       Task[]
@@ -36,7 +36,7 @@ model Service {
   id          String   @id @default(cuid())
   name        String
   description String?
-  duration    Int
+  duration    Int      // in minutes
   price       Float
   color       String   @default("#3B82F6")
   createdAt   DateTime @default(now())
@@ -75,11 +75,11 @@ model ClientDocument {
   id          String   @id @default(cuid())
   clientId    String
   client      Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
-  fileName    String
-  fileSize    Int
-  mimeType    String
-  filePath    String
-  description String?
+  fileName    String   // Original file name
+  fileSize    Int      // File size in bytes
+  mimeType    String   // File MIME type
+  filePath    String   // Path to stored file
+  description String?  // Optional description of document
   uploadedAt  DateTime @default(now())
 
   @@index([clientId])

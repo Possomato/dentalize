@@ -4,15 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "npm run db:prod && next build",
+    "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
     "db:dev": "cp prisma/schema.dev.prisma prisma/schema.prisma && prisma generate",
-    "db:prod": "cp prisma/schema.prod.prisma prisma/schema.prisma && prisma generate",
     "db:migrate": "npx prisma migrate dev",
     "db:studio": "npx prisma studio",
-    "db:push": "npx prisma db push",
-    "postinstall": "prisma generate"
+    "db:push": "npx prisma db push"
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.7.4",
